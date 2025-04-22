@@ -1,0 +1,13 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: ovpn-admin-ui
+    command: "npm start"
+    volumes:
+      - ./.envdocker:/app/.env
+      - /etc/openvpn:/mnt/openvpn
+    ports:
+      - 8080:3000  
+    restart: always

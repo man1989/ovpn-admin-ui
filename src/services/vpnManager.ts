@@ -1,6 +1,6 @@
 import net from "node:net";
 import { exec } from 'child_process';
-import { readFile, unlink, writeFile } from 'fs/promises';
+import { readFile, unlink } from 'fs/promises';
 import path, { join } from 'path';
 import forge from "node-forge";
 import { compile } from "handlebars";
@@ -12,29 +12,29 @@ const MANAGEMENT_PORT = (process.env.MANAGEMENT_PORT && Number(process.env.MANAG
 
 const OPENVPN_PATH = process.env.OPENVPN_PATH || "/etc/openvpn"
 const EASYRSA_DIR = process.env.OPENVPN_EASY_RSA_PATH || '/etc/openvpn/easy-rsa';
-const OUTPUT_DIR = path.join(__dirname, '../../ovpn/generated');
-const BASE_CONFIG = process.env.BASE_COFNIG || '/etc/openvpn/client-base.conf';
+// const OUTPUT_DIR = path.join(__dirname, '../../ovpn/generated');
+const BASE_CONFIG = process.env.BASE_CONFIG || '/etc/openvpn/client-base.conf';
 
-
+console.log("process.env.MANAGEMENT_HOST: ", process.env.MANAGEMENT_HOST)
 class VpnManager {
-    async addClient(clientName: string): Promise<string> {
-        const buildCmd = `cd ${EASYRSA_DIR} && ./easyrsa build-client-full ${clientName} nopass`;
-        const configPath = path.join(OUTPUT_DIR, `${clientName}.ovpn`);
-    
+    async addClient(clientName: string): Promise<void> {
+        const buildCmd = `cd ${EASYRSA_DIR} && ./easyrsa --batch build-client-full ${clientName} nopass`;
+        // const configPath = path.join(OUTPUT_DIR, `${clientName}.ovpn`);
         await this.execShell(buildCmd);
-        await this.generateOvpnConfig(clientName, configPath);
-        return configPath;
+        // return configPath;
+    }
+
+    async revokeClient(clientName: string) {
+        const revokeCmd = `cd ${EASYRSA_DIR} && ./easyrsa --batch revoke ${clientName} && ./easyrsa gen-crl`;
+        console.log("revokeCmd: ", revokeCmd);
+        await this.execShell(revokeCmd);
     }
 
     async deleteClient(clientName: string): Promise<void> {
-        const revokeCmd = `cd ${EASYRSA_DIR} && ./easyrsa revoke ${clientName} && ./easyrsa gen-crl`;
-        await this.execShell(revokeCmd);
-    
         const filesToDelete = [
             path.join(EASYRSA_DIR, 'pki/issued', `${clientName}.crt`),
             path.join(EASYRSA_DIR, 'pki/private', `${clientName}.key`),
-            path.join(EASYRSA_DIR, 'pki/reqs', `${clientName}.req`),
-            path.join(OUTPUT_DIR, `${clientName}.ovpn`)
+            path.join(EASYRSA_DIR, 'pki/reqs', `${clientName}.req`)
         ];
     
         for (const file of filesToDelete) {
@@ -45,22 +45,21 @@ class VpnManager {
     }
     
     async getCertInfo(certPath: string) {
-        const certPem = await readFile(certPath, 'utf8');
-        const cert = forge.pki.certificateFromPem(certPem);
-    
+        const cert = forge.pki.certificateFromPem(certPath);
+        // console.log(cert);
         const issueDate = cert.validity.notBefore;
         const expireDate = cert.validity.notAfter;
         const serialNumber = cert.serialNumber;
         const cn = cert.subject.getField('CN').value;
-    
         return {
-            name: cn,
             id: serialNumber,
+            name: cn,
             issuedAt: issueDate,
             expiresAt: expireDate,
         };
     }
-    async sendCommand(command: string): Promise<string> {
+    async xsendCommand(command: string): Promise<string> {
+        this.generateOvpnConfig;
         switch (command) {
             case "status":
                 return Promise.resolve(`
@@ -78,7 +77,7 @@ END
                 return Promise.resolve("");
         }
     }
-    async xsendCommand(command: string): Promise<string> {
+    async sendCommand(command: string): Promise<string> {
         return new Promise((resolve, reject) => {
             const client = new net.Socket();
             let buffer = '';
@@ -88,7 +87,7 @@ END
             });
 
             client.on('data', (data) => {
-                console.log(data.toString())
+                // console.log(data.toString())
                 buffer += data.toString();
                 if (buffer.includes('END') || (command === 'status' && buffer.includes('CLIENT_LIST'))) {
                     client.end();
@@ -116,23 +115,39 @@ END
         });
     }
     
-    private async generateOvpnConfig(clientName: string, outputPath: string): Promise<void> {
-        const crt = await readFile(`${EASYRSA_DIR}/pki/issued/${clientName}.crt`, 'utf8');
-        const key = await readFile(`${EASYRSA_DIR}/pki/private/${clientName}.key`, 'utf8');
-        const ca = await readFile(`${EASYRSA_DIR}/pki/ca.crt`, 'utf8');
-        const tc = await readFile(`${OPENVPN_PATH}/tc.key`, 'utf8');
+    private extractCert(cert: string){
+        let progress = false;
+        const results = cert.split("\n").filter((line) => {
+            if(line.includes("BEGIN CERTIFICATE")){
+                progress = true
+            } else if(line.includes("END CERTIFICATE")) {
+                progress = false;
+                return line;
+            }
+            if(progress) {
+                return line;
+            }
+            return
+        });
+        return results.join("\n")
+    }
+    async generateOvpnConfig(clientName: string) {
+        const crt = await readFile(`${EASYRSA_DIR}/pki/issued/${clientName}.crt`, 'utf-8');
+        const key = await readFile(`${EASYRSA_DIR}/pki/private/${clientName}.key`, 'utf-8');
+        const ca = await readFile(`${EASYRSA_DIR}/pki/ca.crt`, "utf-8");
+        const tc = await readFile(`${OPENVPN_PATH}/tc.key`, 'utf-8');
         const base = await readFile(BASE_CONFIG, 'utf8');
-        const template = await readFile(join("../templates", "default.hbs"))
-
+        const template = await readFile(join(__dirname, "../templates", "default.hbs"), "utf-8");
+        // console.log("laksdjlkasjdlakjsdlkasjdlk: ", ca);
         const templateFn = compile(template);
         const certificate = templateFn({
             base,
             ca,
-            crt,
+            crt: this.extractCert(crt),
             key, 
             tc
         });
-        await writeFile(outputPath, certificate);
+        return certificate;
     }    
 }
 

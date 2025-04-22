@@ -20,6 +20,16 @@ export class Client {
         this._data = data;
     }
 
+    async upsert(){
+        if(this._data.id){
+            const client = await Client.findById(this._data.id);
+            if(client) {
+                this._data = client;
+            }
+            this.save();
+        }
+    }
+
     async save(){
         if(this._data._id) {
             await Client._dbCollection.update({ id: this._data.id }, this._data);    
@@ -40,8 +50,12 @@ export class Client {
         await this._dbCollection.delete({id: clientId})
     }
 
-    static async update(client: Partial<ClientType>){
-        await this._dbCollection.update(client, client);
+    static async removeByName(clientName: Pick<ClientType, "name">) {
+        await this._dbCollection.delete({name: clientName})
+    }
+
+    static async update(query: any, client: Partial<ClientType>){
+        await this._dbCollection.update(query, client);
     }
 
     static async findById(id: ClientType["id"]) {
@@ -69,7 +83,7 @@ export class Client {
         return [];
     }
 
-    async toJSON(){
+    toJSON(){
         return this._data;
     }
 }

@@ -6,6 +6,8 @@ import { AppConfig } from "../db/AppConfig";
 
 // import { EventEmitter } from "node:events";
 
+console.log(process.env.OPENVPN_PKI_PATH);
+
 const PKI_PATH = process.env.OPENVPN_PKI_PATH || "/etc/openvpn/server/pki"
 // const INDEX_FILE = path.resolve(`${PKI_PATH}/index.txt`);
 // const CERT_PATH = path.resolve(`${PKI_PATH}/issued`);
@@ -51,6 +53,23 @@ const PKI_PATH = process.env.OPENVPN_PKI_PATH || "/etc/openvpn/server/pki"
 //   return clients;
 // }
 
+export async function resyncClients(){
+    const files = await readdir(`${PKI_PATH}/issued`);
+    for(const file of files) {
+        const cert = await readFile(`${PKI_PATH}/issued/${file}`, "utf-8");
+        const certinfo = await vpnManager.getCertInfo(cert);
+        const client = new Client({
+            id: certinfo.id,
+            name: certinfo.name,
+            expiryDate: certinfo.expiresAt.toISOString(),
+            issuedDate: certinfo.issuedAt.toISOString(),
+        });
+        // console.log(client.toJSON());
+        await client.upsert();
+    }
+
+}
+
 export async function syncMissingClients(){
     const files = await readdir(`${PKI_PATH}/issued`);
     const configVal = await AppConfig.findByName("alreadySynced");
@@ -59,8 +78,12 @@ export async function syncMissingClients(){
         return;
     }
     for(const file of files) {
-        const cert = await readFile(`${PKI_PATH}/issued/${file}.crt`, "utf-8");
+        if(["server.crt"].includes(file)){
+            continue;
+        }
+        const cert = await readFile(`${PKI_PATH}/issued/${file}`, "utf-8");
         const certinfo = await vpnManager.getCertInfo(cert);
+        // console.log(certinfo);
         const client = new Client({
             id: certinfo.id,
             name: certinfo.name,

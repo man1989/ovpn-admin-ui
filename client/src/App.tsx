@@ -21,8 +21,7 @@ export default function App() {
             <Layout><Dashboard /></Layout>
           </PrivateRoute>
         }
-      />      
-      {/* <Route path="/" element={<Login />} /> */}
+      />
       <Route
         path="/dashboard"
         element={

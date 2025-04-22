@@ -38,8 +38,8 @@ export class AppConfig {
         await this._dbCollection.update(client, client);
     }
 
-
     static async findByName(name: Config["name"]): Promise<string | null> {
+        console.log(this._dbCollection);
         const results = await this._dbCollection.find({ name: name })
         if(results && Array.isArray(results) && results.length) {
             return results[0].value;

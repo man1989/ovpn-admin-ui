@@ -3,6 +3,8 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 
+dotenv.config();
+
 import clientRoutes from './routes/clients';
 import statusRoutes from './routes/status';
 import authRoutes from './routes/auth';
@@ -11,12 +13,12 @@ import path from 'node:path';
 import { DB } from './db';
 import { syncMissingClients } from './services/worker';
 
+// console.log(process.env);
+
 (async () => {
   const db = new DB();
   await db.connect();
   await syncMissingClients();
-
-  dotenv.config();
 
   const app = express();
   const PORT = process.env.PORT || 3000;

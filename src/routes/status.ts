@@ -35,7 +35,11 @@ router.get('/status', async (_req, res) => {
     try {
         const output = await vpnManager.sendCommand('status');
         const clients = parseStatus(output);
-        res.json({ clients });
+        const data = clients.reduce((result, client) => {
+            result[client.name] = client;
+            return result;
+        }, {} as Record<string, Client>)
+        res.json( data );
     } catch (err) {
         res.status(500).json({ error: err });
     }
