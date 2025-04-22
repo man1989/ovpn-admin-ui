@@ -1,15 +1,28 @@
 {
   "name": "ovpn-admin-ui",
   "version": "1.0.0",
-  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build:ui": "webpack --config webpack.config.js",
     "start": "NODE_ENV=production ts-node src/server.ts"
   },
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "author": "manish.sep1989@gmail.com",
+  "license": "MIT",
+  "description": "Admin console for self hosted openvpn",
+  "keywords": [
+    "openvpn",
+    "vpn",
+    "admin",
+    "dashboard",
+    "ui",
+    "openvpn-ui",
+    "vpn-management",
+    "openvpn-admin",
+    "self-hosted",
+    "networking",
+    "openvpn-gui",
+    "vpn-dashboard"
+  ],  
   "devDependencies": {
     "@babel/core": "7.26.10",
     "@babel/preset-env": "7.26.9",
